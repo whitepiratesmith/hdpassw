@@ -1,0 +1,198 @@
+.TH HDPASSW 1 "2026-05-24" "hdpassw 0.1.0" "User Commands"
+.SH NAME
+hdpassw \- deterministic password manager backed by a BIP39 seed phrase
+.SH SYNOPSIS
+.B hdpassw
+[\fIOPTIONS\fR] \fICOMMAND\fR [\fIARGS\fR]
+.SH DESCRIPTION
+.B hdpassw
+derives passwords deterministically from a single BIP39 seed phrase.
+No passwords are ever stored.
+Every password is computed on demand from the seed phrase, the site name,
+the username, and a rotation counter.
+.PP
+Back up 24 words offline and recover every password, forever.
+.SH COMMANDS
+.SS "hdpassw seed new"
+Generate a new random 24-word BIP39 mnemonic and print it.
+Write it down and store it offline before using it.
+.SS "hdpassw seed check"
+Interactively validate a mnemonic phrase without deriving any keys.
+.SS "hdpassw gen \fISITE\fR"
+Derive the password for \fISITE\fR and copy it to the clipboard.
+The clipboard is automatically cleared after 30 seconds (see \fB\-\-clip-timeout\fR).
+If \fISITE\fR exists in the metadata file its settings are used automatically;
+otherwise \fB\-\-user\fR is required.
+.PP
+.RS
+.TP
+\fB\-u\fR, \fB\-\-user\fR \fIUSER\fR
+Username or email address for this site.
+.TP
+\fB\-n\fR, \fB\-\-counter\fR \fIN\fR
+Rotation counter (default: from metadata, or 1).
+Increment to rotate the password for this site without affecting others.
+.TP
+\fB\-l\fR, \fB\-\-length\fR \fIN\fR
+Password length in characters (default: from metadata, or 32).
+.TP
+\fB\-\-charset\fR \fINAME\fR
+Character set to use.
+Valid values: \fBalpha\fR, \fBalphanumeric\fR (default), \fBfull\fR, \fBpin\fR, \fBhex\fR.
+.TP
+\fB\-\-reveal\fR
+Print the password to stdout instead of copying to the clipboard.
+Use only in a trusted terminal.
+.TP
+\fB\-\-clip-timeout\fR \fISECS\fR
+Seconds before the clipboard is cleared (default: 30).
+.TP
+\fB\-\-json\fR
+Output metadata as JSON (password is not included unless \fB\-\-reveal\fR is also set).
+.RE
+.SS "hdpassw add \fISITE\fR"
+Add or update the metadata record for \fISITE\fR.
+No password material is stored — only site name, username, counter,
+length, charset, and a 4-character non-secret verifier.
+.SS "hdpassw ls [\fIFILTER\fR]"
+List all known sites, optionally filtered by a substring.
+Pass \fB\-\-json\fR for machine-readable output.
+.SS "hdpassw rm \fISITE\fR"
+Remove the metadata record for \fISITE\fR.
+Prompts for confirmation unless \fB\-y\fR is given.
+.SS "hdpassw export"
+Print the full metadata file to stdout in TOML format.
+Contains no passwords or key material.
+.SS "hdpassw recover \fISITE\fR"
+Scan counters 1..N until the derived verifier matches \fB\-\-verifier\fR.
+Useful when the metadata file is lost but the verifier was noted separately.
+.PP
+.RS
+.TP
+\fB\-u\fR, \fB\-\-user\fR \fIUSER\fR
+Username to use during the scan.
+.TP
+\fB\-\-verifier\fR \fIHEX\fR
+4-character hex verifier to match (from the metadata file or your notes).
+.TP
+\fB\-\-max-counter\fR \fIN\fR
+Maximum counter value to try (default: 20).
+.RE
+.SH OPTIONS
+These flags are accepted by every command.
+.TP
+\fB\-\-db\fR \fIFILE\fR
+Path to the metadata file (default: \fI~/.config/hdpassw/sites.toml\fR).
+.TP
+\fB\-\-passphrase\fR \fIPHRASE\fR
+BIP39 passphrase (second factor).
+Prefer the environment variable \fBHDPASSW_PASSPHRASE\fR over this flag to
+avoid the passphrase appearing in the process argument list.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help for the current command.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version information.
+.SH ENVIRONMENT
+.TP
+\fBHDPASSW_PASSPHRASE\fR
+BIP39 passphrase. Equivalent to \fB\-\-passphrase\fR but safer for scripting.
+.TP
+\fBHDPASSW_MNEMONIC\fR
+Seed phrase. Intended for CI/testing only.
+A warning is printed whenever this variable is set.
+.SH FILES
+.TP
+\fI~/.config/hdpassw/sites.toml\fR
+Metadata file. Contains site names, usernames, counters, and non-secret
+verifiers. No passwords or key material. Safe to back up anywhere.
+Permissions are set to 0600 (owner read/write only) on Unix.
+.SH CHARSETS
+.TP
+\fBalphanumeric\fR
+a\-z A\-Z 0\-9 (62 characters, default)
+.TP
+\fBalpha\fR
+a\-z A\-Z (52 characters)
+.TP
+\fBfull\fR
+a\-z A\-Z 0\-9 and common symbols (95 printable ASCII characters)
+.TP
+\fBpin\fR
+0\-9 (10 characters, for numeric PINs)
+.TP
+\fBhex\fR
+0\-9 a\-f (16 characters, for API keys and hex secrets)
+.SH BACKUP STRATEGY
+.TP
+\fBSeed phrase (24 words)\fR
+Secret. Store offline on paper or a metal backup.
+This is the only thing that must be kept secure.
+.TP
+\fBPassphrase\fR
+Secret. Memorise it; never write it next to the seed phrase.
+.TP
+\fB~/.config/hdpassw/sites.toml\fR
+Not secret. Store in git, cloud storage, or anywhere convenient.
+Losing it is recoverable: all passwords at counter=1 need only the seed phrase;
+rotated passwords can be found with \fBhdpassw recover\fR if the verifier is known.
+.SH CRYPTOGRAPHY
+Password derivation follows a three-step pipeline:
+.PP
+.RS
+seed phrase → PBKDF2-HMAC-SHA512 (BIP39) → 64-byte seed
+.br
+seed[0:32]  → HKDF-Extract SHA-256 ("hdpassw-v1") → master key
+.br
+master key  → HKDF-Expand SHA-256 (site|user|counter) → site key
+.br
+site key    → HKDF-Expand SHA-256 ("encode") → password
+.RE
+.PP
+See \fIALGORITHM.md\fR in the source tree for the full specification including
+test vectors.
+.SH EXAMPLES
+Generate a new seed phrase:
+.PP
+.RS
+.EX
+hdpassw seed new
+.EE
+.RE
+.PP
+Register a site and generate its password:
+.PP
+.RS
+.EX
+hdpassw add github.com --user jakob
+hdpassw gen github.com
+.EE
+.RE
+.PP
+Rotate the password for one site (all others unchanged):
+.PP
+.RS
+.EX
+hdpassw add github.com --user jakob --counter 2
+hdpassw gen github.com
+.EE
+.RE
+.PP
+Recover the correct counter from seed alone:
+.PP
+.RS
+.EX
+hdpassw recover github.com --user jakob --verifier a3f9
+.EE
+.RE
+.SH SEE ALSO
+.BR age (1),
+.BR ssh-keygen (1),
+.BR gpg (1)
+.SH AUTHOR
+Jakob Husu <jakobhusu@jakobhusu.com>
+.SH SECURITY
+Report vulnerabilities to \fBjakobhusu@jakobhusu.com\fR.
+Do not open a public issue for security bugs.
+See \fISECURITY.md\fR for the full threat model.
