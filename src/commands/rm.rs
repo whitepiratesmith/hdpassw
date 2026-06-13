@@ -1,9 +1,10 @@
 use std::io::{self, Write};
 use std::path::Path;
 
+use hdpassw::error::{Error, Result};
+use hdpassw::store;
+
 use crate::cli::RmArgs;
-use crate::error::{Error, Result};
-use crate::store;
 
 pub fn run(args: RmArgs, db_path: &Path) -> Result<()> {
     let mut store = store::load(db_path)?;

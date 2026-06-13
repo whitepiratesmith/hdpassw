@@ -12,6 +12,7 @@
 #
 # OPTIONS
 #   --prefix PATH     Installation prefix (default: /usr/local)
+#   --gui             Also install the optional GUI (hdpassw-gui)
 #   --uninstall       Remove a previous installation
 #   --no-completions  Skip shell completions
 #   --no-man          Skip man page
@@ -24,6 +25,7 @@ PREFIX="/usr/local"
 UNINSTALL=0
 COMPLETIONS=1
 MAN=1
+GUI=0
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -43,6 +45,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --prefix)        PREFIX="${2:?--prefix requires a value}"; shift 2 ;;
         --prefix=*)      PREFIX="${1#--prefix=}"; shift ;;
+        --gui)           GUI=1;          shift ;;
         --uninstall)     UNINSTALL=1;    shift ;;
         --no-completions) COMPLETIONS=0; shift ;;
         --no-man)        MAN=0;          shift ;;
@@ -60,7 +63,10 @@ MANDIR="${PREFIX}/share/man/man1"
 BASH_COMPDIR="${PREFIX}/share/bash-completion/completions"
 ZSH_COMPDIR="${PREFIX}/share/zsh/site-functions"
 FISH_COMPDIR="${PREFIX}/share/fish/vendor_completions.d"
+DESKTOPDIR="${PREFIX}/share/applications"
+ICONDIR="${PREFIX}/share/icons/hicolor/scalable/apps"
 TARGET_BIN="target/release/hdpassw"
+TARGET_GUI_BIN="target/release/hdpassw-gui"
 
 # ── Source directory check ────────────────────────────────────────────────────
 [ -f Cargo.toml ] \
@@ -73,10 +79,13 @@ VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 if [ "$UNINSTALL" -eq 1 ]; then
     step "Uninstalling hdpassw from ${PREFIX}"
     rm -f "${BINDIR}/hdpassw"            && info "Removed ${BINDIR}/hdpassw"
+    rm -f "${BINDIR}/hdpassw-gui"        && info "Removed ${BINDIR}/hdpassw-gui"
     rm -f "${MANDIR}/hdpassw.1"          && info "Removed ${MANDIR}/hdpassw.1"
     rm -f "${BASH_COMPDIR}/hdpassw"      && info "Removed bash completion"
     rm -f "${ZSH_COMPDIR}/_hdpassw"      && info "Removed zsh completion"
     rm -f "${FISH_COMPDIR}/hdpassw.fish" && info "Removed fish completion"
+    rm -f "${ICONDIR}/hdpassw-gui.svg"   && info "Removed desktop icon"
+    rm -f "${DESKTOPDIR}/hdpassw-gui.desktop" && info "Removed desktop launcher"
     printf "\n"
     warn "Your data file (~/.config/hdpassw/sites.toml) was not removed."
     printf "\n"
@@ -91,6 +100,14 @@ step "Checking prerequisites"
     ./build.sh"
 info "hdpassw ${VERSION}  (${TARGET_BIN})"
 
+if [ "$GUI" -eq 1 ]; then
+    [ -f "${TARGET_GUI_BIN}" ] \
+        || error "No binary found at ${TARGET_GUI_BIN}.
+  Build it first (as your normal user):
+    ./build.sh --gui"
+    info "hdpassw-gui ${VERSION}  (${TARGET_GUI_BIN})"
+fi
+
 # ── Install binary ────────────────────────────────────────────────────────────
 step "Installing to ${PREFIX}"
 
@@ -98,6 +115,22 @@ mkdir -p "${BINDIR}"
 cp "${TARGET_BIN}" "${BINDIR}/hdpassw"
 chmod 755 "${BINDIR}/hdpassw"
 info "Binary: ${BINDIR}/hdpassw"
+
+if [ "$GUI" -eq 1 ]; then
+    cp "${TARGET_GUI_BIN}" "${BINDIR}/hdpassw-gui"
+    chmod 755 "${BINDIR}/hdpassw-gui"
+    info "Binary: ${BINDIR}/hdpassw-gui"
+
+    mkdir -p "${ICONDIR}"
+    cp assets/hdpassw-gui.svg "${ICONDIR}/hdpassw-gui.svg"
+    chmod 644 "${ICONDIR}/hdpassw-gui.svg"
+    info "Icon: ${ICONDIR}/hdpassw-gui.svg"
+
+    mkdir -p "${DESKTOPDIR}"
+    cp assets/hdpassw-gui.desktop "${DESKTOPDIR}/hdpassw-gui.desktop"
+    chmod 644 "${DESKTOPDIR}/hdpassw-gui.desktop"
+    info "Desktop launcher: ${DESKTOPDIR}/hdpassw-gui.desktop"
+fi
 
 # ── Install man page ──────────────────────────────────────────────────────────
 if [ "$MAN" -eq 1 ] && [ -f man/hdpassw.1 ]; then
@@ -129,6 +162,14 @@ if [ "$COMPLETIONS" -eq 1 ]; then
     fi
 fi
 
+# ── Refresh desktop databases (GUI only) ─────────────────────────────────────
+if [ "$GUI" -eq 1 ]; then
+    command -v update-desktop-database >/dev/null 2>&1 \
+        && update-desktop-database "${DESKTOPDIR}" >/dev/null 2>&1 || true
+    command -v gtk-update-icon-cache >/dev/null 2>&1 \
+        && gtk-update-icon-cache "${PREFIX}/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 printf "\n${BOLD}Installation complete.${RESET}\n\n"
 
@@ -143,6 +184,10 @@ esac
 
 printf "  Run ${BOLD}hdpassw --help${RESET} to get started.\n"
 printf "  Run ${BOLD}hdpassw seed new${RESET} to generate your seed phrase.\n\n"
+
+if [ "$GUI" -eq 1 ]; then
+    printf "  hdpassw-gui is available in your application menu as \"hdpassw\".\n\n"
+fi
 
 if [ "$COMPLETIONS" -eq 1 ]; then
     printf "  Shell completions:\n"

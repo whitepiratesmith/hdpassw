@@ -1,19 +1,15 @@
 mod cli;
-mod clipboard;
 mod commands;
-mod crypto;
-mod error;
-mod session;
-mod store;
 
 use std::fs;
 
 use clap::Parser;
 
 use cli::{Cli, Command};
-use error::Result;
-use session::Session;
-use store::{default_db_path, vault_path};
+use hdpassw::error::{self, Result};
+use hdpassw::session::Session;
+use hdpassw::store::{default_db_path, vault_path};
+use hdpassw::crypto;
 
 fn main() {
     if let Err(e) = run() {

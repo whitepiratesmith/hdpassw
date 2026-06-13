@@ -12,6 +12,8 @@
 #   make              Build the release binary (as your regular user)
 #   make install      Build + install to PREFIX (default: /usr/local)
 #   make install-only Install a pre-built binary — skips cargo (safe under sudo)
+#   make gui          Build the optional GUI (hdpassw-gui)
+#   make install-gui  Install a pre-built hdpassw-gui — skips cargo (safe under sudo)
 #   make uninstall    Remove everything installed
 #   make test         Run all tests
 #   make check        clippy + fmt check
@@ -46,8 +48,11 @@ MANDIR       := $(DESTDIR)$(PREFIX)/share/man/man1
 BASH_COMPDIR := $(DESTDIR)$(PREFIX)/share/bash-completion/completions
 ZSH_COMPDIR  := $(DESTDIR)$(PREFIX)/share/zsh/site-functions
 FISH_COMPDIR := $(DESTDIR)$(PREFIX)/share/fish/vendor_completions.d
+DESKTOPDIR   := $(DESTDIR)$(PREFIX)/share/applications
+ICONDIR      := $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps
 
-TARGET_BIN := target/release/hdpassw
+TARGET_BIN     := target/release/hdpassw
+TARGET_GUI_BIN := target/release/hdpassw-gui
 VERSION    := $(shell grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
 # ── Default target ────────────────────────────────────────────────────────────
@@ -60,6 +65,13 @@ build: $(TARGET_BIN)
 
 $(TARGET_BIN): $(shell find src -name '*.rs') Cargo.toml
 	$(CARGO) build --release
+
+# ── GUI (optional) ────────────────────────────────────────────────────────────
+.PHONY: gui
+gui: $(TARGET_GUI_BIN)
+
+$(TARGET_GUI_BIN): $(shell find src -name '*.rs') Cargo.toml
+	$(CARGO) build --release --features gui --bin hdpassw-gui
 
 # ── Install (build + copy) ────────────────────────────────────────────────────
 .PHONY: install
@@ -103,15 +115,49 @@ install-only:
 	@echo "  Man page:  man hdpassw"
 	@echo ""
 
+# ── Install GUI-only (copy pre-built binary — safe under sudo) ───────────────
+.PHONY: install-gui
+install-gui:
+	@test -f $(TARGET_GUI_BIN) || { \
+	    echo ""; \
+	    echo "  ✗  $(TARGET_GUI_BIN) not found."; \
+	    echo "     Build it first as your regular user:  make gui"; \
+	    echo ""; \
+	    exit 1; \
+	}
+	@echo "Installing hdpassw-gui $(VERSION) to $(DESTDIR)$(PREFIX)"
+
+	install -d $(BINDIR)
+	install -m 755 $(TARGET_GUI_BIN) $(BINDIR)/hdpassw-gui
+
+	install -d $(ICONDIR)
+	install -m 644 assets/hdpassw-gui.svg $(ICONDIR)/hdpassw-gui.svg
+
+	install -d $(DESKTOPDIR)
+	install -m 644 assets/hdpassw-gui.desktop $(DESKTOPDIR)/hdpassw-gui.desktop
+
+	@command -v update-desktop-database >/dev/null 2>&1 && \
+	    update-desktop-database $(DESKTOPDIR) >/dev/null 2>&1 || true
+	@command -v gtk-update-icon-cache >/dev/null 2>&1 && \
+	    gtk-update-icon-cache $(DESTDIR)$(PREFIX)/share/icons/hicolor >/dev/null 2>&1 || true
+
+	@echo ""
+	@echo "  ✓  hdpassw-gui installed to $(BINDIR)/hdpassw-gui"
+	@echo "  ✓  Desktop launcher installed to $(DESKTOPDIR)/hdpassw-gui.desktop"
+	@echo ""
+
 # ── Uninstall ─────────────────────────────────────────────────────────────────
 .PHONY: uninstall
 uninstall:
 	@echo "Removing hdpassw from $(DESTDIR)$(PREFIX)"
 	rm -f $(BINDIR)/hdpassw
+	rm -f $(BINDIR)/hdpassw-gui
 	rm -f $(MANDIR)/hdpassw.1
 	rm -f $(BASH_COMPDIR)/hdpassw
 	rm -f $(ZSH_COMPDIR)/_hdpassw
 	rm -f $(FISH_COMPDIR)/hdpassw.fish
+	rm -f $(ICONDIR)/hdpassw-gui.svg
+	rm -f $(DESKTOPDIR)/hdpassw-gui.desktop
 	@echo "  ✓  Uninstalled"
 	@echo "     (metadata file ~/.config/hdpassw/sites.toml was not removed)"
 
@@ -174,6 +220,8 @@ help:
 	@echo "    make              Build release binary"
 	@echo "    make install      Build + install (binary, man page, completions)"
 	@echo "    make install-only Install pre-built binary — safe under sudo"
+	@echo "    make gui          Build the optional GUI (hdpassw-gui)"
+	@echo "    make install-gui  Install pre-built hdpassw-gui — safe under sudo"
 	@echo "    make uninstall    Remove installed files"
 	@echo "    make test         Run all tests"
 	@echo "    make check        clippy + fmt check"

@@ -1,7 +1,8 @@
+use hdpassw::crypto::verifier;
+use hdpassw::error::{Error, Result};
+use hdpassw::session::Session;
+
 use crate::cli::RecoverArgs;
-use crate::crypto::verifier;
-use crate::error::{Error, Result};
-use crate::session::Session;
 
 /// Scan counters 1..=max_counter until the derived verifier matches.
 /// Useful when you have the seed but lost the rotation log.

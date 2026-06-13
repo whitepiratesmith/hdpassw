@@ -1,6 +1,6 @@
 [package]
 name        = "hdpassw"
-version     = "0.1.0"
+version     = "0.2.0"
 edition     = "2024"
 description = "Deterministic password manager backed by a BIP39 seed phrase"
 license     = "BSD-2-Clause"
@@ -12,9 +12,17 @@ categories  = ["command-line-utilities", "cryptography"]
 name = "hdpassw"
 path = "src/main.rs"
 
+[[bin]]
+name = "hdpassw-gui"
+path = "src/bin/gui.rs"
+required-features = ["gui"]
+
 [lib]
 name = "hdpassw"
 path = "src/lib.rs"
+
+[features]
+gui = ["eframe", "egui"]
 
 [dependencies]
 # Cryptography
@@ -45,6 +53,10 @@ thiserror   = "1"
 anyhow      = "1"
 chrono      = { version = "0.4", features = ["serde"] }
 serde_json  = "1"
+
+# GUI (optional, behind "gui" feature)
+eframe      = { version = "0.32", optional = true }
+egui        = { version = "0.32", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc        = "0.2"

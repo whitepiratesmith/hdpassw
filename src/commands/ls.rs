@@ -2,9 +2,10 @@ use std::path::Path;
 
 use chrono::Local;
 
+use hdpassw::error::Result;
+use hdpassw::store;
+
 use crate::cli::LsArgs;
-use crate::error::Result;
-use crate::store;
 
 pub fn run(args: LsArgs, db_path: &Path) -> Result<()> {
     let st = store::load(db_path)?;

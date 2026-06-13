@@ -93,6 +93,24 @@ Or with the shell script:
 sudo ./install.sh --skip-build     # step 2: install as root
 ```
 
+## GUI (optional)
+
+A minimal desktop GUI (`hdpassw-gui`) is available as an opt-in build, built
+with [egui](https://github.com/emilk/egui) — pure Rust, no webview. It unlocks
+the encrypted seed vault, lists known sites, and lets you generate/copy
+passwords or add new sites.
+
+```bash
+# Build
+make gui                  # or: ./build.sh --gui
+
+# Install (also adds a desktop launcher + icon)
+sudo make install-gui     # or: sudo ./install.sh --gui
+```
+
+The CLI remains the primary interface; the GUI requires an existing encrypted
+vault (`hdpassw seed new` / `hdpassw seed restore`).
+
 ## Usage
 
 ```

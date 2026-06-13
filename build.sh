@@ -9,7 +9,10 @@
 #   On macOS:         xcode-select --install  (no extra deps needed)
 #
 # USAGE
-#   ./build.sh
+#   ./build.sh [OPTIONS]
+#
+# OPTIONS
+#   --gui    Also build the optional GUI (hdpassw-gui)
 #
 # Then install with:
 #   sudo ./install.sh
@@ -18,6 +21,19 @@
 #   CARGO    Override the cargo binary path.
 
 set -eu
+
+# ── Argument parsing ──────────────────────────────────────────────────────────
+GUI=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --gui) GUI=1; shift ;;
+        -h|--help)
+            sed -n '/^# USAGE/,/^[^#]/{ /^[^#]/d; s/^# \{0,1\}//; p }' "$0"
+            exit 0
+            ;;
+        *) printf "Unknown argument: %s  (try --help)\n" "$1" >&2; exit 1 ;;
+    esac
+done
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -115,6 +131,16 @@ step "Building release binary"
 sh -c "$CARGO_BIN build --release"
 info "Built: target/release/hdpassw"
 
+if [ "$GUI" -eq 1 ]; then
+    step "Building GUI (hdpassw-gui)"
+    sh -c "$CARGO_BIN build --release --features gui --bin hdpassw-gui"
+    info "Built: target/release/hdpassw-gui"
+fi
+
 printf "\n${BOLD}Build complete.${RESET}\n"
 printf "  Now install as root:\n"
-printf "    ${BOLD}sudo ./install.sh${RESET}\n\n"
+if [ "$GUI" -eq 1 ]; then
+    printf "    ${BOLD}sudo ./install.sh --gui${RESET}\n\n"
+else
+    printf "    ${BOLD}sudo ./install.sh${RESET}\n\n"
+fi

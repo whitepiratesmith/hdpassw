@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=hdpassw
+Comment=Deterministic password manager
+Exec=hdpassw-gui
+Icon=hdpassw-gui
+Terminal=false
+Categories=Utility;Security;
+StartupWMClass=hdpassw

@@ -57,7 +57,6 @@ impl Charset {
         }
     }
 
-    #[allow(dead_code)]
     pub fn as_str(self) -> &'static str {
         match self {
             Charset::Alpha => "alpha",

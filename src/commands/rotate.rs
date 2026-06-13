@@ -2,8 +2,8 @@ use std::path::Path;
 
 use chrono::Local;
 
-use crate::error::Result;
-use crate::store;
+use hdpassw::error::Result;
+use hdpassw::store;
 
 pub fn run(db_path: &Path) -> Result<()> {
     let mut st = store::load(db_path)?;

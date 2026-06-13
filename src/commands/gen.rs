@@ -2,12 +2,13 @@ use std::path::Path;
 
 use chrono::Local;
 
+use hdpassw::crypto::encode::Charset;
+use hdpassw::error::Result;
+use hdpassw::session::Session;
+use hdpassw::store::{self, site::SiteRecord};
+use hdpassw::{clipboard, manager};
+
 use crate::cli::GenArgs;
-use crate::clipboard;
-use crate::crypto::encode::{self, Charset};
-use crate::error::Result;
-use crate::session::Session;
-use crate::store::{self, site::SiteRecord};
 
 /// Parse an optional `/N` generation suffix from the site argument.
 /// `"github.com/2"` → `("github.com", Some(2))`
@@ -64,8 +65,7 @@ pub fn run(args: GenArgs, db_path: &Path, session: &Session) -> Result<()> {
     }
 
     let charset = Charset::from_str(&charset_str)?;
-    let key = session.site_key(&site, &user, counter)?;
-    let password = encode::encode(&key, length, charset)?;
+    let password = manager::generate_password(session, &site, &user, counter, length, charset)?;
 
     // Save / update site record
     let today = Local::now().date_naive();

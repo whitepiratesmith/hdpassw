@@ -1,10 +1,11 @@
 use std::fs;
 use std::io::{self, BufRead, Write};
 
+use hdpassw::crypto;
+use hdpassw::error::{Error, Result};
+use hdpassw::store::vault_path;
+
 use crate::cli::SeedCommand;
-use crate::crypto;
-use crate::error::{Error, Result};
-use crate::store::vault_path;
 
 pub fn run(cmd: SeedCommand) -> Result<()> {
     match cmd {
@@ -44,7 +45,7 @@ fn new() -> Result<()> {
 
 fn check() -> Result<()> {
     let phrase = rpassword::prompt_password("Enter mnemonic: ")
-        .map_err(crate::error::Error::Io)?;
+        .map_err(Error::Io)?;
 
     let phrase = phrase.trim().to_string();
     match crypto::parse(&phrase) {

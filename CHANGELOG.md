@@ -12,6 +12,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-13
+
+### Added
+- Optional `hdpassw-gui` binary: a pure-Rust (egui/eframe) desktop GUI for
+  unlocking the seed vault, generating/copying passwords, and adding sites —
+  built and installed via the `gui` Cargo feature (`make gui`, `./build.sh --gui`)
+- Desktop launcher (`.desktop` entry + icon) installed alongside the GUI
+  via `make install-gui` / `./install.sh --gui`
+- `src/manager.rs`: shared password-generation and site-upsert logic used by
+  both the CLI and the GUI, so they can never diverge
+
+### Changed
+- Reorganized the crate into a library (`hdpassw`) plus two binaries
+  (`hdpassw`, `hdpassw-gui`), both depending on the shared library for
+  session, store, clipboard, and crypto code
+- Vault password is now held in a `Zeroizing<String>` in the GUI, matching
+  the CLI's handling of secret material
+
 ## [0.1.0] — 2026-05-24
 
 ### Added
