@@ -30,6 +30,7 @@ fn run() -> Result<()> {
 
     match cli.command {
         // Commands that don't need the master key
+        Command::Init => commands::seed::init(),
         Command::Seed(seed_cmd) => commands::seed::run(seed_cmd),
         Command::Ls(args) => commands::ls::run(args, &db_path),
         Command::Rm(args) => commands::rm::run(args, &db_path),
@@ -46,7 +47,12 @@ fn run() -> Result<()> {
                 Command::Add(args) => commands::add::run(args, &db_path, &session),
                 Command::Recover(args) => commands::recover::run(args, &session),
                 // Already handled above
-                Command::Seed(_) | Command::Ls(_) | Command::Rm(_) | Command::Export | Command::Rotate => {
+                Command::Init
+                | Command::Seed(_)
+                | Command::Ls(_)
+                | Command::Rm(_)
+                | Command::Export
+                | Command::Rotate => {
                     unreachable!()
                 }
             }

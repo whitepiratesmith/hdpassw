@@ -16,6 +16,31 @@ pub fn run(cmd: SeedCommand) -> Result<()> {
     }
 }
 
+/// First-run entry point: ask whether to create a new seed phrase or
+/// restore an existing one, then hand off to the matching `seed` flow.
+pub fn init() -> Result<()> {
+    eprintln!();
+    eprintln!("  hdpassw setup");
+    eprintln!("  ─────────────");
+    eprintln!("  1) Create a new seed phrase");
+    eprintln!("  2) Restore an existing seed phrase");
+    eprintln!();
+
+    loop {
+        eprint!("  Choice [1/2]: ");
+        io::stderr().flush().map_err(Error::Io)?;
+
+        let mut line = String::new();
+        io::stdin().lock().read_line(&mut line).map_err(Error::Io)?;
+
+        match line.trim() {
+            "1" => return new(),
+            "2" => return restore(),
+            _ => eprintln!("  Please enter 1 or 2."),
+        }
+    }
+}
+
 fn new() -> Result<()> {
     let mnemonic = crypto::generate();
     let words: Vec<&str> = mnemonic.words().collect();

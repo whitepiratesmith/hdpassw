@@ -24,6 +24,12 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    /// Get started: create a new seed phrase or restore an existing one.
+    ///
+    /// Equivalent to `seed new` / `seed restore`, but asks which you want
+    /// instead of you having to know the subcommand up front.
+    Init,
+
     /// Generate (and copy) the password for a site.
     Gen(GenArgs),
 

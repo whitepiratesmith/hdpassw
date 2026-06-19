@@ -19,9 +19,12 @@ See [ALGORITHM.md](ALGORITHM.md) for the full cryptographic specification.
 
 ## Quick start
 
+You can get started entirely from the CLI, entirely from the GUI, or mix
+the two — both read and write the same encrypted vault and metadata file.
+
 ```bash
 # 1. Generate a seed phrase — write it down offline
-hdpassw seed new
+hdpassw init          # or: hdpassw seed new
 
 # 2. Register a site (metadata only, no passwords stored)
 hdpassw add github.com --user jakob
@@ -32,6 +35,10 @@ hdpassw gen github.com
 # 4. List all sites
 hdpassw ls
 ```
+
+Or skip the CLI entirely: launch `hdpassw-gui` (see [GUI](#gui-optional)
+below) and its first-run wizard will walk you through generating or
+restoring a seed phrase, right from the window.
 
 ## Dependencies
 
@@ -108,8 +115,12 @@ make gui                  # or: ./build.sh --gui
 sudo make install-gui     # or: sudo ./install.sh --gui
 ```
 
-The CLI remains the primary interface; the GUI requires an existing encrypted
-vault (`hdpassw seed new` / `hdpassw seed restore`).
+No encrypted vault yet? `hdpassw-gui` doesn't require the CLI to set one up —
+launching it with no vault present shows a first-run wizard that generates a
+new seed phrase (with a short recall quiz to catch transcription mistakes)
+or restores an existing one, then saves the vault, all from the window. The
+CLI and GUI are equally capable starting points and share the same vault and
+site metadata.
 
 ## Usage
 

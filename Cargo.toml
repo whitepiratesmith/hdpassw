@@ -1,6 +1,6 @@
 [package]
 name        = "hdpassw"
-version     = "0.2.0"
+version     = "0.2.1"
 edition     = "2024"
 description = "Deterministic password manager backed by a BIP39 seed phrase"
 license     = "BSD-2-Clause"

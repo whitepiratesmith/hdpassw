@@ -12,6 +12,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-19
+
+### Added
+- First-run setup wizard built into `hdpassw-gui`: generate a new seed phrase
+  or restore an existing one, complete a 6-word recall quiz to catch
+  transcription mistakes, and save the encrypted vault — entirely from the
+  GUI, with no CLI step required beforehand
+- BIP39 word autocomplete (suggestion chips) in the GUI's seed-verification
+  quiz and seed-restore screens
+- `hdpassw init`: a friendlier first-run entry point that asks whether to
+  create a new seed phrase or restore an existing one, then hands off to
+  `seed new` / `seed restore`
+
+### Fixed
+- Centering of buttons and the seed-word grid in the GUI's setup wizard
+
 ## [0.2.0] — 2026-06-13
 
 ### Added
