@@ -1,4 +1,4 @@
-.TH HDPASSW 1 "2026-05-24" "hdpassw 0.1.0" "User Commands"
+.TH HDPASSW 1 "2026-06-19" "hdpassw 0.2.2" "User Commands"
 .SH NAME
 hdpassw \- deterministic password manager backed by a BIP39 seed phrase
 .SH SYNOPSIS
@@ -13,11 +13,23 @@ the username, and a rotation counter.
 .PP
 Back up 24 words offline and recover every password, forever.
 .SH COMMANDS
+.SS "hdpassw init"
+Friendlier first-run entry point.
+Asks whether to create a new seed phrase or restore an existing one,
+then hands off to \fBseed new\fR / \fBseed restore\fR.
 .SS "hdpassw seed new"
 Generate a new random 24-word BIP39 mnemonic and print it.
 Write it down and store it offline before using it.
 .SS "hdpassw seed check"
 Interactively validate a mnemonic phrase without deriving any keys.
+.SS "hdpassw seed restore"
+Restore from an existing seed phrase — enter words separated by spaces.
+Validates every word against the BIP39 list and the full phrase checksum,
+then offers to save the phrase to the encrypted vault.
+.SS "hdpassw seed remove"
+Remove the encrypted seed vault from disk.
+After removal, hdpassw prompts for the full seed phrase again on every
+command that needs it.
 .SS "hdpassw gen \fISITE\fR"
 Derive the password for \fISITE\fR and copy it to the clipboard.
 The clipboard is automatically cleared after 30 seconds (see \fB\-\-clip-timeout\fR).
@@ -63,6 +75,55 @@ Prompts for confirmation unless \fB\-y\fR is given.
 .SS "hdpassw export"
 Print the full metadata file to stdout in TOML format.
 Contains no passwords or key material.
+.SS "hdpassw rotate"
+Bump the global rotation counter and list sites that need regenerating.
+After rotating, run \fBhdpassw gen \fISITE\fR\fR for each listed site to get
+the new password and update your account.
+.SS "hdpassw bump \fISITE\fR"
+Walks through actually changing a site's password, rather than just
+bumping a counter. Derives the OLD password (current counter) and the NEW
+password (target counter), hands you the old one first to log in and
+start the change, then the new one to set on the site, and only writes
+the bumped counter and recomputed verifier to the metadata file once
+that hand-off is done. A cancelled run leaves the metadata file
+untouched.
+.PP
+With no \fB\-\-to\fR, the target counter catches the site up to the
+current global rotation level (or bumps by one if it is already caught
+up).
+.PP
+.RS
+.TP
+\fB\-\-to\fR \fIN\fR
+Set the counter to this exact value instead of catching up to the global
+rotation level.
+.TP
+\fB\-\-reveal\fR
+Print the old and new passwords directly instead of using the clipboard
+hand-off. Useful over SSH or in a headless session.
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+Skip the "save now?" confirmation and persist immediately.
+.TP
+\fB\-\-json\fR
+Print the old/new passwords (and counters) as a JSON object instead of
+an interactive hand-off. Nothing is persisted unless \fB\-\-yes\fR is
+also given.
+.RE
+.SS "hdpassw pwned [\fISITE\fR]"
+Check whether a site's password has appeared in a known data breach, using
+the Have I Been Pwned "Pwned Passwords" range API. If \fISITE\fR is omitted,
+every site in the metadata file is checked.
+.PP
+Only the first 5 hex characters of the password's SHA-1 hash are sent to
+\fIapi.pwnedpasswords.com\fR (k-anonymity) — the password itself, and its
+full hash, never leave the machine. No API key is required.
+.PP
+.RS
+.TP
+\fB\-\-json\fR
+Output results as a JSON array.
+.RE
 .SS "hdpassw recover \fISITE\fR"
 Scan counters 1..N until the derived verifier matches \fB\-\-verifier\fR.
 Useful when the metadata file is lost but the verifier was noted separately.
@@ -179,6 +240,15 @@ hdpassw gen github.com
 .EE
 .RE
 .PP
+Change a site's password, catching it up to the current global rotation
+level (walks you through old password → log in → new password → save):
+.PP
+.RS
+.EX
+hdpassw bump github.com
+.EE
+.RE
+.PP
 Recover the correct counter from seed alone:
 .PP
 .RS
@@ -186,6 +256,20 @@ Recover the correct counter from seed alone:
 hdpassw recover github.com --user jakob --verifier a3f9
 .EE
 .RE
+.PP
+Check every site for known breaches:
+.PP
+.RS
+.EX
+hdpassw pwned
+.EE
+.RE
+.SH NETWORK ACCESS
+.B hdpassw pwned
+is the only command that makes a network request. It queries
+\fIhttps://api.pwnedpasswords.com/range/\fR with a 5-character SHA-1 hash
+prefix (k-anonymity) to check whether a derived password is a known breached
+password. No other command performs any network I/O.
 .SH SEE ALSO
 .BR age (1),
 .BR ssh-keygen (1),

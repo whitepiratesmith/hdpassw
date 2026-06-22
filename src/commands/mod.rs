@@ -1,7 +1,9 @@
 pub mod add;
+pub mod bump;
 pub mod export;
 pub mod r#gen;
 pub mod ls;
+pub mod pwned;
 pub mod recover;
 pub mod rm;
 pub mod rotate;

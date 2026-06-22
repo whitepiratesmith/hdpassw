@@ -26,6 +26,17 @@ hdpassw is a **stateless, deterministic** password manager.
 - Clipboard sniffers (use `--reveal` only in a trusted terminal)
 - Physical access to the device while the process is running
 
+### Network access
+
+`hdpassw` is otherwise fully offline. The only exception is
+`hdpassw pwned` (CLI) and the "Test if pwned" button (GUI), which query the
+[Have I Been Pwned](https://haveibeenpwned.com/API/v3#PwnedPasswords)
+"Pwned Passwords" range API over HTTPS. This uses k-anonymity: only the
+first 5 hex characters of the derived password's SHA-1 hash are sent —
+never the password itself, the full hash, the site name, or the seed
+phrase. No API key is configured or required. Skip these commands entirely
+if you do not want hdpassw to make any network requests.
+
 ---
 
 ## Cryptographic Primitives
@@ -39,6 +50,7 @@ hdpassw is a **stateless, deterministic** password manager.
 | Vault encryption key | Argon2id | RFC 9106 |
 | Vault cipher | ChaCha20-Poly1305 | RFC 8439 |
 | Random generation | OS CSPRNG via `getrandom` | — |
+| Pwned-password lookup key | SHA-1 (k-anonymity prefix only, per HIBP API) | — |
 
 No custom cryptographic constructions are used. All primitives are
 implemented by audited Rust crates (`scrypt`, `blake3`, `argon2`,

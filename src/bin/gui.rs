@@ -145,6 +145,11 @@ struct App {
     /// First-run wizard state, active when no vault exists yet.
     setup: Option<SetupState>,
 
+    /// In-progress password change for one site: (site, old_counter,
+    /// new_counter, step). Step 0 = old password not yet copied,
+    /// step 1 = old password copied, waiting to copy the new one and save.
+    bump_in_progress: Option<(String, u32, u32, u8)>,
+
     /// "Add site" form state.
     show_add_form: bool,
     new_site: String,
@@ -165,6 +170,7 @@ impl Default for App {
             status: String::new(),
             status_is_error: false,
             setup: None,
+            bump_in_progress: None,
             show_add_form: false,
             new_site: String::new(),
             new_user: String::new(),
@@ -617,8 +623,15 @@ impl App {
     }
 
     fn main_screen(&mut self, ui: &mut egui::Ui) {
+        let mut run_pwned_check = false;
+        let mut run_rotate = false;
+
         ui.horizontal(|ui| {
             ui.heading("Sites");
+            ui.label(
+                egui::RichText::new(format!("rotation /{}", self.sites.rotation))
+                    .color(egui::Color32::GRAY),
+            );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Lock").clicked() {
                     self.session = None;
@@ -634,9 +647,29 @@ impl App {
                 if ui.button(add_label).clicked() {
                     self.show_add_form = !self.show_add_form;
                 }
+                if ui
+                    .add_enabled(!self.sites.sites.is_empty(), egui::Button::new("Test if pwned"))
+                    .clicked()
+                {
+                    run_pwned_check = true;
+                }
+                if ui
+                    .button("Rotate")
+                    .on_hover_text(
+                        "Bump the global rotation counter only — sites are flagged behind, \
+                         not changed. Use \"Bump\" on a site to actually change its password.",
+                    )
+                    .clicked()
+                {
+                    run_rotate = true;
+                }
             });
         });
         ui.add_space(8.0);
+
+        if run_rotate {
+            self.rotate_global();
+        }
 
         if self.show_add_form {
             self.add_form(ui);
@@ -650,11 +683,21 @@ impl App {
             return;
         }
 
-        let session = self.session.as_ref().expect("unlocked");
         let mut to_copy: Option<(String, String, u32, usize, String)> = None;
+        let mut start_bump: Option<(String, u32, u32)> = None;
+        let mut advance_bump = false;
+        let mut cancel_bump = false;
+        let rotation = self.sites.rotation;
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             for (site, record) in &self.sites.sites {
+                let behind = record.counter < rotation;
+                let in_progress = self
+                    .bump_in_progress
+                    .as_ref()
+                    .filter(|(s, ..)| s == site)
+                    .map(|(_, _, _, step)| *step);
+
                 egui::Frame::group(ui.style())
                     .inner_margin(egui::Margin::symmetric(10, 8))
                     .show(ui, |ui| {
@@ -664,6 +707,15 @@ impl App {
                                 ui.label(
                                     egui::RichText::new(&record.user).color(egui::Color32::GRAY),
                                 );
+                                if behind {
+                                    ui.label(
+                                        egui::RichText::new(format!(
+                                            "⚠ /{} → /{rotation}",
+                                            record.counter
+                                        ))
+                                        .color(egui::Color32::ORANGE),
+                                    );
+                                }
                             });
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
@@ -677,6 +729,36 @@ impl App {
                                             record.charset.clone(),
                                         ));
                                     }
+                                    match in_progress {
+                                        Some(0) => {
+                                            if ui.button("Copy old password").clicked() {
+                                                advance_bump = true;
+                                            }
+                                            if ui.button("Cancel").clicked() {
+                                                cancel_bump = true;
+                                            }
+                                        }
+                                        Some(_) => {
+                                            if ui.button("Copy new password & save").clicked() {
+                                                advance_bump = true;
+                                            }
+                                            if ui.button("Cancel").clicked() {
+                                                cancel_bump = true;
+                                            }
+                                        }
+                                        None if behind => {
+                                            if ui.button("Bump").clicked() {
+                                                let new = if record.counter < rotation {
+                                                    rotation
+                                                } else {
+                                                    record.counter + 1
+                                                };
+                                                start_bump =
+                                                    Some((site.clone(), record.counter, new));
+                                            }
+                                        }
+                                        None => {}
+                                    }
                                 },
                             );
                         });
@@ -686,13 +768,193 @@ impl App {
         });
 
         if let Some((site, user, counter, length, charset_str)) = to_copy {
-            match generate_and_copy(session, &site, &user, counter, length, &charset_str) {
+            let session = self.session.as_ref().expect("unlocked");
+            let result = generate_and_copy(session, &site, &user, counter, length, &charset_str);
+            match result {
                 Ok(()) => self.set_status(
                     format!("✓ Copied password for {site} — clears in 30s"),
                     false,
                 ),
                 Err(e) => self.set_status(format!("✗ {e}"), true),
             }
+        }
+
+        if let Some((site, old, new)) = start_bump {
+            self.bump_in_progress = Some((site, old, new, 0));
+        }
+
+        if advance_bump {
+            self.advance_bump();
+        }
+
+        if cancel_bump {
+            self.bump_in_progress = None;
+            self.set_status("Bump cancelled — nothing saved", false);
+        }
+
+        if run_pwned_check {
+            self.check_all_pwned();
+        }
+    }
+
+    /// Advances an in-progress password change one step.
+    ///
+    /// Step 0 → 1: copies the OLD password (current counter) so the user
+    /// can log in and start the change on the site.
+    /// Step 1 → done: copies the NEW password (target counter) and only
+    /// then persists the bumped counter and recomputed verifier to disk.
+    /// If either step fails, `bump_in_progress` is left as-is so the user
+    /// can retry without losing their place.
+    fn advance_bump(&mut self) {
+        let Some((site, old, new, step)) = self.bump_in_progress.clone() else {
+            return;
+        };
+        let Some(record) = self.sites.sites.get(&site).cloned() else {
+            self.bump_in_progress = None;
+            return;
+        };
+        let charset = match Charset::from_str(&record.charset) {
+            Ok(c) => c,
+            Err(e) => return self.set_status(format!("✗ {e}"), true),
+        };
+
+        if step == 0 {
+            let password_result = {
+                let session = self.session.as_ref().expect("unlocked");
+                manager::generate_password(session, &site, &record.user, old, record.length, charset)
+            };
+            let password = match password_result {
+                Ok(p) => Zeroizing::new(p),
+                Err(e) => return self.set_status(format!("✗ {e}"), true),
+            };
+            if let Err(e) = clipboard::copy_and_clear(&password, 30) {
+                return self.set_status(format!("✗ {e}"), true);
+            }
+            self.bump_in_progress = Some((site.clone(), old, new, 1));
+            self.set_status(
+                format!(
+                    "✓ Copied OLD password for {site} — log in, then click \"Copy new password & save\""
+                ),
+                false,
+            );
+            return;
+        }
+
+        let new_password_result = {
+            let session = self.session.as_ref().expect("unlocked");
+            manager::generate_password(session, &site, &record.user, new, record.length, charset)
+        };
+        let new_password = match new_password_result {
+            Ok(p) => Zeroizing::new(p),
+            Err(e) => return self.set_status(format!("✗ {e}"), true),
+        };
+        if let Err(e) = clipboard::copy_and_clear(&new_password, 30) {
+            return self.set_status(format!("✗ {e}"), true);
+        }
+
+        let upsert_result = {
+            let session = self.session.as_ref().expect("unlocked");
+            manager::upsert_site(
+                &mut self.sites,
+                session,
+                &site,
+                &record.user,
+                new,
+                record.length,
+                charset,
+                record.notes.clone(),
+            )
+        };
+        if let Err(e) = upsert_result {
+            return self.set_status(format!("✗ {e}"), true);
+        }
+        if let Err(e) = store::save(&self.db_path, &self.sites) {
+            return self.set_status(format!("✗ {e}"), true);
+        }
+
+        self.bump_in_progress = None;
+        self.set_status(
+            format!("✓ Saved: {site} is now at /{new} — new password copied, paste it on the site"),
+            false,
+        );
+    }
+
+    /// Bump the global rotation counter only — no site's own counter or
+    /// password is touched. Sites whose counter is now behind are flagged
+    /// in the list; use the per-site "Bump" button to actually change one.
+    fn rotate_global(&mut self) {
+        let old = self.sites.rotation;
+        let new = old + 1;
+        self.sites.rotation = new;
+        self.sites.rotation_since = chrono::Local::now().date_naive();
+
+        if let Err(e) = store::save(&self.db_path, &self.sites) {
+            self.sites.rotation = old;
+            return self.set_status(format!("✗ {e}"), true);
+        }
+
+        let stale = self.sites.sites.values().filter(|r| r.counter < new).count();
+        self.set_status(
+            if stale == 0 {
+                format!("✓ Rotation /{old} → /{new} — every site is already caught up")
+            } else {
+                format!(
+                    "✓ Rotation /{old} → /{new} — {stale} site(s) now behind, use \"Bump\" to change them"
+                )
+            },
+            false,
+        );
+    }
+
+    /// Derive every stored site's password and check it against Have I
+    /// Been Pwned, then summarize results in the status line. Passwords
+    /// are held only long enough to hash and check, never displayed.
+    fn check_all_pwned(&mut self) {
+        let session = self.session.as_ref().expect("unlocked");
+        let sites: Vec<_> = self
+            .sites
+            .sites
+            .iter()
+            .map(|(site, record)| {
+                (
+                    site.clone(),
+                    record.user.clone(),
+                    record.counter,
+                    record.length,
+                    record.charset.clone(),
+                )
+            })
+            .collect();
+
+        let mut breached = Vec::new();
+        for (site, user, counter, length, charset_str) in &sites {
+            match check_pwned(session, site, user, *counter, *length, charset_str) {
+                Ok(hdpassw::pwned::PwnedStatus::Safe) => {}
+                Ok(hdpassw::pwned::PwnedStatus::Pwned(count)) => {
+                    breached.push(format!("{site} ({count})"));
+                }
+                Err(e) => {
+                    self.set_status(format!("✗ {e}"), true);
+                    return;
+                }
+            }
+        }
+
+        if breached.is_empty() {
+            self.set_status(
+                format!("✓ Checked {} site(s) — none found in known breaches", sites.len()),
+                false,
+            );
+        } else {
+            self.set_status(
+                format!(
+                    "⚠ {} of {} password(s) found in known breaches: {}",
+                    breached.len(),
+                    sites.len(),
+                    breached.join(", ")
+                ),
+                true,
+            );
         }
     }
 
@@ -835,4 +1097,22 @@ fn generate_and_copy(
     let charset = Charset::from_str(charset_str)?;
     let password = manager::generate_password(session, site, user, counter, length, charset)?;
     clipboard::copy_and_clear(&password, 30)
+}
+
+/// Derive the password for `site` and check it against the Have I Been
+/// Pwned range API. The password never leaves this function — only a
+/// 5-character SHA-1 prefix is sent over the network.
+fn check_pwned(
+    session: &Session,
+    site: &str,
+    user: &str,
+    counter: u32,
+    length: usize,
+    charset_str: &str,
+) -> hdpassw::error::Result<hdpassw::pwned::PwnedStatus> {
+    let charset = Charset::from_str(charset_str)?;
+    let password = Zeroizing::new(manager::generate_password(
+        session, site, user, counter, length, charset,
+    )?);
+    hdpassw::pwned::check(&password)
 }

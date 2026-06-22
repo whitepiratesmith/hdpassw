@@ -55,8 +55,24 @@ pub enum Command {
     /// the new password and update your account.
     Rotate,
 
+    /// Walk through changing a site's password: derive the old and new
+    /// password, hand them to you in turn, then update the metadata file.
+    ///
+    /// With no `--to`, the new counter catches the site up to the current
+    /// global rotation level (or bumps by one if it's already caught up).
+    /// Nothing is written to disk until you've gone through the password
+    /// hand-off, so a cancelled run leaves your metadata untouched.
+    Bump(BumpArgs),
+
     /// Recover counter for a site by scanning from a seed alone.
     Recover(RecoverArgs),
+
+    /// Check whether a site's password has appeared in a known data breach.
+    ///
+    /// Uses the Have I Been Pwned Pwned Passwords range API (k-anonymity):
+    /// only a 5-character SHA-1 hash prefix is sent over the network, never
+    /// the password itself. No API key required.
+    Pwned(PwnedArgs),
 }
 
 // ── gen ──────────────────────────────────────────────────────────────────────
@@ -174,6 +190,33 @@ pub enum SeedCommand {
     Remove,
 }
 
+// ── bump ─────────────────────────────────────────────────────────────────────
+
+#[derive(Parser)]
+pub struct BumpArgs {
+    /// Site name to bump
+    pub site: String,
+
+    /// Set the counter to this exact value instead of catching up to the
+    /// global rotation level
+    #[arg(long)]
+    pub to: Option<u32>,
+
+    /// Print the old/new passwords directly instead of using the
+    /// clipboard hand-off (for headless or SSH sessions)
+    #[arg(long)]
+    pub reveal: bool,
+
+    /// Skip the "save now?" confirmation and persist immediately
+    #[arg(short = 'y', long)]
+    pub yes: bool,
+
+    /// Output the old/new passwords as JSON instead of an interactive
+    /// hand-off. Nothing is persisted unless --yes is also given.
+    #[arg(long)]
+    pub json: bool,
+}
+
 // ── recover ──────────────────────────────────────────────────────────────────
 
 #[derive(Parser)]
@@ -192,4 +235,16 @@ pub struct RecoverArgs {
     /// Maximum counter value to try (default: 20)
     #[arg(long, default_value = "20")]
     pub max_counter: u32,
+}
+
+// ── pwned ────────────────────────────────────────────────────────────────────
+
+#[derive(Parser)]
+pub struct PwnedArgs {
+    /// Site name to check (omit to check every site in the metadata file)
+    pub site: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
 }

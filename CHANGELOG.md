@@ -12,6 +12,38 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-06-19
+
+### Added
+- `hdpassw pwned [SITE]`: check a site's derived password (or every site,
+  if none is given) against the Have I Been Pwned "Pwned Passwords" range
+  API. Uses k-anonymity — only a 5-character SHA-1 hash prefix is sent,
+  never the password or full hash. No API key required
+- GUI: "Test if pwned" button checks every stored site's password against
+  the same API in one click and summarizes which (if any) were found in a
+  known breach
+- `hdpassw bump SITE [--to N]`: walks through actually changing a site's
+  password — derives the old password (to log in) and the new one (to
+  set), hands them to you in turn via the clipboard, then updates the
+  metadata file only once that hand-off is done. Catches the site up to
+  the current global rotation level by default (or to an exact value
+  with `--to`); `--reveal` prints both passwords for headless/SSH use,
+  `--json`/`--yes` support scripting
+- `hdpassw ls` and the GUI now show the global rotation counter and flag
+  any site whose counter has fallen behind it, with a "Bump" button in
+  the GUI that walks through the same password hand-off
+- GUI: "Rotate" button bumps the global rotation counter only (same as
+  `hdpassw rotate`) — it never touches a site's own counter or password
+
+### Changed
+- This is the only network access hdpassw makes; see the updated threat
+  model in `SECURITY.md`
+
+### Docs
+- `man/hdpassw.1` and shell completions (bash/zsh/fish) now document
+  `init`, `rotate`, `seed restore`, `seed remove`, and `pwned` — these had
+  shipped in earlier releases without doc updates
+
 ## [0.2.1] — 2026-06-19
 
 ### Added

@@ -59,7 +59,7 @@ pub fn run(args: LsArgs, db_path: &Path) -> Result<()> {
     }
     if stale_count > 0 {
         eprintln!(
-            "  {stale_count} site(s) behind — run hdpassw gen <site> to rotate them"
+            "  {stale_count} site(s) behind — run hdpassw bump <site> to catch up"
         );
     }
     eprintln!();
@@ -86,9 +86,13 @@ pub fn run(args: LsArgs, db_path: &Path) -> Result<()> {
             name.to_string()
         };
         let stale = r.counter < rotation;
-        let flag = if stale { " ⚠" } else { "  " };
+        let advisory = if stale {
+            format!("  ⚠ bump to /{rotation}")
+        } else {
+            String::new()
+        };
         println!(
-            "{:<name_w$}{flag}  {:>4}  {:<12}  {}",
+            "{:<name_w$}    {:>4}  {:<12}  {}{advisory}",
             display, r.length, r.charset, r.modified
         );
     }

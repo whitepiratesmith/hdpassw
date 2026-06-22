@@ -128,13 +128,17 @@ site metadata.
 hdpassw <COMMAND>
 
 Commands:
+  init     Get started: create a new seed phrase or restore an existing one
   gen      Generate (and copy) the password for a site
   add      Add or update a site record in the metadata file
   ls       List all known sites
   rm       Remove a site record from the metadata file
-  seed     Seed phrase management (new, check)
+  seed     Seed phrase management (new, check, restore, remove)
   export   Export metadata to stdout (no passwords)
+  rotate   Bump the global rotation counter and list sites to regenerate
+  bump     Bump the rotation counter for a single saved site
   recover  Recover counter by scanning from a seed alone
+  pwned    Check site password(s) against Have I Been Pwned
 ```
 
 ### Generate a password
@@ -168,6 +172,38 @@ hdpassw add github.com --user jakob --counter 2
 hdpassw gen github.com   # now generates password for n=2
 ```
 
+### Change a site's password (catch up to the current rotation level)
+
+`hdpassw bump` walks you through an actual password change, not just a
+counter bump: it derives the OLD password (to log in) and the NEW
+password (to set), hands them to you in turn via the clipboard, and only
+updates the metadata file once that hand-off is done — so a cancelled
+run leaves your metadata untouched.
+
+```bash
+# After hdpassw rotate, walk through the change for one site
+hdpassw bump github.com
+# Step 1/2: copies the OLD password — log in and start the change
+# Step 2/2: copies the NEW password — paste it as the new one
+# Then confirms before saving the new counter to metadata
+
+# Set an exact counter value instead of catching up to the global level
+hdpassw bump github.com --to 5
+
+# Headless/SSH: print both passwords instead of using the clipboard
+hdpassw bump github.com --reveal
+
+# Scripting: get both passwords as JSON; --yes persists the new counter
+hdpassw bump github.com --json --yes
+```
+
+`hdpassw rotate` (CLI) and the "Rotate" button (GUI) bump only the
+*global* rotation counter and list which sites have fallen behind — they
+never touch a site's own counter or password. `hdpassw ls` shows the
+global counter and flags stale sites; the GUI shows the same counter
+next to the site list, with a "Bump" button that walks through the
+password hand-off on each site that's behind.
+
 ### Recover from seed only
 
 ```bash
@@ -175,6 +211,25 @@ hdpassw gen github.com   # now generates password for n=2
 hdpassw recover github.com --user jakob --verifier a3f9
 # → Found! counter = 2
 ```
+
+### Check for known breaches
+
+```bash
+# Check one site
+hdpassw pwned github.com
+
+# Check every site in the metadata file
+hdpassw pwned
+```
+
+Uses the [Have I Been Pwned](https://haveibeenpwned.com/API/v3#PwnedPasswords)
+"Pwned Passwords" range API with k-anonymity: only the first 5 characters of
+the password's SHA-1 hash are sent over the network — the password itself,
+and its full hash, never leave your machine. No API key needed. This is the
+only command in hdpassw that makes a network request.
+
+The GUI's "Test if pwned" button does the same check for every stored site
+in one click.
 
 ### Scripting
 

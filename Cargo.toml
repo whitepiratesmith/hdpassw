@@ -1,6 +1,6 @@
 [package]
 name        = "hdpassw"
-version     = "0.2.1"
+version     = "0.2.2"
 edition     = "2024"
 description = "Deterministic password manager backed by a BIP39 seed phrase"
 license     = "BSD-2-Clause"
@@ -57,6 +57,10 @@ serde_json  = "1"
 # GUI (optional, behind "gui" feature)
 eframe      = { version = "0.32", optional = true }
 egui        = { version = "0.32", optional = true }
+
+# Have I Been Pwned check
+sha1        = "0.10"
+ureq        = "2"
 
 [target.'cfg(unix)'.dependencies]
 libc        = "0.2"

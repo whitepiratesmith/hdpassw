@@ -36,7 +36,6 @@ pub struct SiteRecord {
 }
 
 impl SiteRecord {
-    #[allow(dead_code)]
     pub fn charset(&self) -> crate::error::Result<Charset> {
         Charset::from_str(&self.charset)
     }

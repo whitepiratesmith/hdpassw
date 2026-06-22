@@ -46,6 +46,8 @@ fn run() -> Result<()> {
                 Command::Gen(args) => commands::r#gen::run(args, &db_path, &session),
                 Command::Add(args) => commands::add::run(args, &db_path, &session),
                 Command::Recover(args) => commands::recover::run(args, &session),
+                Command::Pwned(args) => commands::pwned::run(args, &db_path, &session),
+                Command::Bump(args) => commands::bump::run(args, &db_path, &session),
                 // Already handled above
                 Command::Init
                 | Command::Seed(_)

@@ -4,5 +4,6 @@ pub mod clipboard;
 pub mod crypto;
 pub mod error;
 pub mod manager;
+pub mod pwned;
 pub mod session;
 pub mod store;

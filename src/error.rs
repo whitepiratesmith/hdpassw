@@ -20,6 +20,9 @@ pub enum Error {
     #[error("clipboard error: {0}")]
     Clipboard(String),
 
+    #[error("pwned-password check failed: {0}")]
+    Pwned(String),
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 }

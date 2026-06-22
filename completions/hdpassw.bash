@@ -2,8 +2,8 @@ _hdpassw() {
     local cur prev words cword
     _init_completion || return
 
-    local commands="gen add ls rm seed export recover help"
-    local seed_commands="new check"
+    local commands="init gen add ls rm seed export rotate bump recover pwned help"
+    local seed_commands="new check restore remove"
     local charsets="alpha alphanumeric full pin hex"
 
     case "${words[1]}" in
@@ -39,6 +39,19 @@ _hdpassw() {
                 --db) COMPREPLY=($(compgen -f -- "$cur")) ; return ;;
             esac
             COMPREPLY=($(compgen -W "--user --verifier --max-counter --db --passphrase" -- "$cur"))
+            ;;
+        pwned)
+            case "$prev" in
+                --db) COMPREPLY=($(compgen -f -- "$cur")) ; return ;;
+            esac
+            COMPREPLY=($(compgen -W "--json --db --passphrase" -- "$cur"))
+            ;;
+        bump)
+            case "$prev" in
+                --to) return ;;
+                --db) COMPREPLY=($(compgen -f -- "$cur")) ; return ;;
+            esac
+            COMPREPLY=($(compgen -W "--to --reveal --yes --json --db --passphrase" -- "$cur"))
             ;;
         *)
             COMPREPLY=($(compgen -W "$commands" -- "$cur"))
